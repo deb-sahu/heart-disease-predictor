@@ -1,0 +1,3 @@
+# This file ensures the artifacts directory exists in git
+# Training artifacts are gitignored and generated during training
+

@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  # Heart Disease Prediction API
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    image: heart-disease-predictor:latest
+    container_name: heart-disease-api
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONPATH=/app
+      - LOG_LEVEL=INFO
+    volumes:
+      # Mount models directory for easy model updates
+      - ./models:/app/models:ro
+      # Mount logs directory
+      - ./logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - heart-disease-network
+
+  # MLflow Tracking Server (for experiment tracking UI)
+  mlflow:
+    image: python:3.11-slim
+    container_name: mlflow-server
+    working_dir: /mlflow
+    command: >
+      bash -c "pip install mlflow && 
+               mlflow server --host 0.0.0.0 --port 5000 
+               --backend-store-uri sqlite:///mlflow.db 
+               --default-artifact-root /mlflow/artifacts"
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./mlruns:/mlflow/artifacts
+      - mlflow-db:/mlflow
+    restart: unless-stopped
+    networks:
+      - heart-disease-network
+
+networks:
+  heart-disease-network:
+    driver: bridge
+
+volumes:
+  mlflow-db:
+

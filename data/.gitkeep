@@ -1,0 +1,3 @@
+# This file ensures the data directory exists in git
+# Dataset files are gitignored and downloaded during training
+
