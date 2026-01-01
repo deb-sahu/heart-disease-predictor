@@ -1,6 +1,7 @@
 """
 Configuration settings for the Heart Disease Predictor.
 """
+
 from pathlib import Path
 
 # Project paths
@@ -21,9 +22,9 @@ RAW_DATA_PATH = DATA_DIR / "heart_disease_raw.csv"
 PROCESSED_DATA_PATH = DATA_DIR / "heart_disease_processed.csv"
 
 # Feature definitions
-NUMERIC_FEATURES = ['age', 'trestbps', 'chol', 'thalach', 'oldpeak', 'ca']
-CATEGORICAL_FEATURES = ['sex', 'cp', 'fbs', 'restecg', 'exang', 'slope', 'thal']
-TARGET_COLUMN = 'target'
+NUMERIC_FEATURES = ["age", "trestbps", "chol", "thalach", "oldpeak", "ca"]
+CATEGORICAL_FEATURES = ["sex", "cp", "fbs", "restecg", "exang", "slope", "thal"]
+TARGET_COLUMN = "target"
 ALL_FEATURES = NUMERIC_FEATURES + CATEGORICAL_FEATURES
 
 # Model configuration
@@ -43,4 +44,3 @@ MLFLOW_EXPERIMENT_NAME = "heart-disease-prediction"
 # API configuration
 API_HOST = "0.0.0.0"
 API_PORT = 8000
-
