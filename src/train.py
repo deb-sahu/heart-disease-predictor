@@ -11,6 +11,7 @@ from datetime import datetime
 
 import mlflow
 import mlflow.sklearn
+from mlflow.models.signature import infer_signature
 from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
@@ -255,8 +256,15 @@ def train_and_log_model(
             json.dump(report, f, indent=2)
         mlflow.log_artifact(str(report_path))
         
-        # Log the model
-        mlflow.sklearn.log_model(model, f"model_{model_name}")
+        # Log the model with signature and input example
+        signature = infer_signature(X_train, model.predict(X_train))
+        input_example = X_train[:1]  # First row as example
+        mlflow.sklearn.log_model(
+            model, 
+            f"model_{model_name}",
+            signature=signature,
+            input_example=input_example
+        )
         
         logger.info(f"{model_name} - Accuracy: {metrics['accuracy']:.4f}, ROC-AUC: {metrics['roc_auc']:.4f}")
         
