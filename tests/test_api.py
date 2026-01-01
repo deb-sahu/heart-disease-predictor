@@ -4,7 +4,7 @@ Unit tests for the FastAPI application.
 
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
@@ -13,67 +13,81 @@ from fastapi.testclient import TestClient
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 
+@pytest.fixture
+def mock_predictor():
+    """Create a mock predictor."""
+    mock = MagicMock()
+    mock.predict.return_value = {
+        "prediction": 1,
+        "prediction_label": "Heart Disease Present",
+        "probability_no_disease": 0.23,
+        "probability_disease": 0.77,
+        "confidence": 0.77,
+    }
+    mock.feature_names = [
+        "age",
+        "sex",
+        "cp",
+        "trestbps",
+        "chol",
+        "fbs",
+        "restecg",
+        "thalach",
+        "exang",
+        "oldpeak",
+        "slope",
+        "ca",
+        "thal",
+    ]
+    mock.pipeline_path = Path("/mock/path/pipeline.pkl")
+    return mock
+
+
+@pytest.fixture
+def client_with_mock(mock_predictor):
+    """Create test client with mocked predictor injected after startup."""
+    import api.app
+
+    with TestClient(api.app.app) as client:
+        # Inject mock predictor after app starts
+        api.app.predictor = mock_predictor
+        yield client
+
+
+@pytest.fixture
+def client_without_model():
+    """Create test client without model (for testing error handling)."""
+    import api.app
+
+    with TestClient(api.app.app) as client:
+        # Ensure predictor is None to test 503 response
+        api.app.predictor = None
+        yield client
+
+
 class TestAPIEndpoints:
     """Tests for API endpoints."""
 
-    @pytest.fixture
-    def mock_predictor(self):
-        """Create a mock predictor."""
-        mock = MagicMock()
-        mock.predict.return_value = {
-            "prediction": 1,
-            "prediction_label": "Heart Disease Present",
-            "probability_no_disease": 0.23,
-            "probability_disease": 0.77,
-            "confidence": 0.77,
-        }
-        mock.feature_names = [
-            "age",
-            "sex",
-            "cp",
-            "trestbps",
-            "chol",
-            "fbs",
-            "restecg",
-            "thalach",
-            "exang",
-            "oldpeak",
-            "slope",
-            "ca",
-            "thal",
-        ]
-        mock.pipeline_path = Path("/mock/path/pipeline.pkl")
-        return mock
-
-    @pytest.fixture
-    def client(self, mock_predictor):
-        """Create test client with mocked predictor."""
-        with patch("api.app.predictor", mock_predictor):
-            from api.app import app
-
-            with TestClient(app) as client:
-                yield client
-
-    def test_root_endpoint(self, client):
+    def test_root_endpoint(self, client_with_mock):
         """Test root endpoint."""
-        response = client.get("/")
+        response = client_with_mock.get("/")
         assert response.status_code == 200
 
         data = response.json()
         assert "status" in data
         assert "version" in data
 
-    def test_health_endpoint(self, client):
+    def test_health_endpoint(self, client_with_mock):
         """Test health check endpoint."""
-        response = client.get("/health")
+        response = client_with_mock.get("/health")
         assert response.status_code == 200
 
         data = response.json()
         assert data["status"] == "healthy"
 
-    def test_predict_endpoint_valid_input(self, client, sample_patient_data):
+    def test_predict_endpoint_valid_input(self, client_with_mock, sample_patient_data):
         """Test predict endpoint with valid input."""
-        response = client.post("/predict", json=sample_patient_data)
+        response = client_with_mock.post("/predict", json=sample_patient_data)
         assert response.status_code == 200
 
         data = response.json()
@@ -82,25 +96,30 @@ class TestAPIEndpoints:
         assert "probability_disease" in data
         assert "confidence" in data
 
-    def test_predict_endpoint_missing_field(self, client, sample_patient_data):
+    def test_predict_endpoint_no_model(self, client_without_model, sample_patient_data):
+        """Test predict endpoint returns 503 when model not loaded."""
+        response = client_without_model.post("/predict", json=sample_patient_data)
+        assert response.status_code == 503
+
+    def test_predict_endpoint_missing_field(self, client_with_mock, sample_patient_data):
         """Test predict endpoint with missing required field."""
         del sample_patient_data["age"]
 
-        response = client.post("/predict", json=sample_patient_data)
+        response = client_with_mock.post("/predict", json=sample_patient_data)
         assert response.status_code == 422  # Validation error
 
-    def test_predict_endpoint_invalid_value(self, client, sample_patient_data):
+    def test_predict_endpoint_invalid_value(self, client_with_mock, sample_patient_data):
         """Test predict endpoint with invalid field value."""
         sample_patient_data["age"] = -5  # Invalid age
 
-        response = client.post("/predict", json=sample_patient_data)
+        response = client_with_mock.post("/predict", json=sample_patient_data)
         assert response.status_code == 422  # Validation error
 
-    def test_predict_endpoint_invalid_type(self, client, sample_patient_data):
+    def test_predict_endpoint_invalid_type(self, client_with_mock, sample_patient_data):
         """Test predict endpoint with invalid field type."""
         sample_patient_data["age"] = "not_a_number"
 
-        response = client.post("/predict", json=sample_patient_data)
+        response = client_with_mock.post("/predict", json=sample_patient_data)
         assert response.status_code == 422  # Validation error
 
 
