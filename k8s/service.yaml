@@ -1,0 +1,35 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: heart-disease-api-service
+  namespace: heart-disease-predictor
+  labels:
+    app: heart-disease-api
+spec:
+  type: LoadBalancer
+  selector:
+    app: heart-disease-api
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 8000
+---
+# ClusterIP service for internal communication
+apiVersion: v1
+kind: Service
+metadata:
+  name: heart-disease-api-internal
+  namespace: heart-disease-predictor
+  labels:
+    app: heart-disease-api
+spec:
+  type: ClusterIP
+  selector:
+    app: heart-disease-api
+  ports:
+    - name: http
+      protocol: TCP
+      port: 8000
+      targetPort: 8000
+

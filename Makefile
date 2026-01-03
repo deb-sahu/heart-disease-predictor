@@ -1,7 +1,7 @@
 # Heart Disease Predictor - Makefile
 # Convenient commands for development and deployment
 
-.PHONY: help install install-dev clean lint format test train run docker-build docker-run docker-stop all
+.PHONY: help install install-dev clean lint format test train run docker-build docker-run docker-stop k8s-deploy k8s-delete all
 
 # Default target
 help:
@@ -32,7 +32,14 @@ help:
 	@echo "  make docker-stop   Stop Docker container"
 	@echo "  make docker-test   Test Docker container"
 	@echo ""
-	@echo "Cleanup:"
+	@echo "Kubernetes:"
+	@echo "  make k8s-deploy       Deploy to Kubernetes"
+	@echo "  make k8s-status       Show deployment status"
+	@echo "  make k8s-logs         View pod logs"
+	@echo "  make k8s-port-forward Forward port to access API"
+	@echo "  make k8s-delete       Delete all K8s resources"
+	@echo ""
+	@echo "Cleanup:
 	@echo "  make clean         Remove cache and temporary files"
 	@echo "  make clean-all     Remove all generated files"
 
@@ -120,6 +127,39 @@ docker-compose-up:
 
 docker-compose-down:
 	docker-compose down
+
+# ============================================================================
+# Kubernetes
+# ============================================================================
+
+k8s-deploy:
+	@echo "Deploying to Kubernetes..."
+	kubectl apply -k k8s/
+	kubectl wait --for=condition=available --timeout=120s deployment/heart-disease-api -n heart-disease-predictor
+	@echo "✓ Deployment complete!"
+	@echo "Run: kubectl port-forward svc/heart-disease-api-service 8080:80 -n heart-disease-predictor"
+
+k8s-delete:
+	kubectl delete namespace heart-disease-predictor
+	@echo "✓ Kubernetes resources deleted"
+
+k8s-logs:
+	kubectl logs -f deployment/heart-disease-api -n heart-disease-predictor
+
+k8s-status:
+	@echo "=== Pods ==="
+	kubectl get pods -n heart-disease-predictor
+	@echo ""
+	@echo "=== Services ==="
+	kubectl get svc -n heart-disease-predictor
+	@echo ""
+	@echo "=== HPA ==="
+	kubectl get hpa -n heart-disease-predictor
+
+k8s-port-forward:
+	@echo "Forwarding port 8080 to the API service..."
+	@echo "Access at http://localhost:8080"
+	kubectl port-forward svc/heart-disease-api-service 8080:80 -n heart-disease-predictor
 
 # ============================================================================
 # Cleanup

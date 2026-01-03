@@ -11,6 +11,8 @@ import uvicorn
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from prometheus_client import Counter, Histogram, Gauge
+from prometheus_fastapi_instrumentator import Instrumentator
 
 from api.schemas import ErrorResponse, HealthResponse, PatientData, PredictionResponse
 from src.config import API_HOST, API_PORT
@@ -22,6 +24,40 @@ logger = logging.getLogger(__name__)
 
 # Global predictor instance
 predictor: Optional[HeartDiseasePredictor] = None
+
+# ============================================================================
+# Prometheus Custom Metrics
+# ============================================================================
+
+# Prediction metrics
+PREDICTIONS_TOTAL = Counter(
+    "heart_disease_predictions_total",
+    "Total number of predictions made",
+    ["prediction_result"]
+)
+
+PREDICTION_LATENCY = Histogram(
+    "heart_disease_prediction_latency_seconds",
+    "Time spent processing prediction requests",
+    buckets=[0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0]
+)
+
+PREDICTION_CONFIDENCE = Histogram(
+    "heart_disease_prediction_confidence",
+    "Confidence scores of predictions",
+    buckets=[0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.99, 1.0]
+)
+
+MODEL_LOADED = Gauge(
+    "heart_disease_model_loaded",
+    "Whether the ML model is currently loaded (1=loaded, 0=not loaded)"
+)
+
+PREDICTION_ERRORS = Counter(
+    "heart_disease_prediction_errors_total",
+    "Total number of prediction errors",
+    ["error_type"]
+)
 
 
 @asynccontextmanager
@@ -35,17 +71,21 @@ async def lifespan(app: FastAPI):
         predictor = HeartDiseasePredictor()
         predictor.load()
         logger.info("Model loaded successfully")
+        MODEL_LOADED.set(1)
     except FileNotFoundError as e:
         logger.warning(f"Model not found: {e}. API will start but predictions will fail.")
         predictor = None
+        MODEL_LOADED.set(0)
     except Exception as e:
         logger.error(f"Error loading model: {e}")
         predictor = None
+        MODEL_LOADED.set(0)
 
     yield
 
     # Shutdown
     logger.info("Shutting down Heart Disease Prediction API...")
+    MODEL_LOADED.set(0)
 
 
 # Create FastAPI app
@@ -58,6 +98,7 @@ app = FastAPI(
     - Predict heart disease risk from patient health metrics
     - Returns probability scores and confidence levels
     - Built with MLOps best practices
+    - Prometheus metrics at /metrics endpoint
 
     ## Model Information
     - Dataset: UCI Heart Disease Dataset
@@ -67,6 +108,18 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+
+# Add Prometheus instrumentation
+instrumentator = Instrumentator(
+    should_group_status_codes=True,
+    should_ignore_untemplated=True,
+    should_respect_env_var=True,
+    should_instrument_requests_inprogress=True,
+    excluded_handlers=["/metrics"],
+    inprogress_name="heart_disease_inprogress_requests",
+    inprogress_labels=True,
+)
+instrumentator.instrument(app).expose(app)
 
 # Add CORS middleware
 app.add_middleware(
@@ -137,9 +190,12 @@ async def predict(patient_data: PatientData):
     - **thal**: Thalassemia type
     """
     if predictor is None:
+        PREDICTION_ERRORS.labels(error_type="model_not_loaded").inc()
         raise HTTPException(
             status_code=503, detail="Model not loaded. Please ensure the model is trained and available."
         )
+
+    start_time = datetime.now()
 
     try:
         # Convert Pydantic model to dict
@@ -151,15 +207,26 @@ async def predict(patient_data: PatientData):
         # Make prediction
         result = predictor.predict(input_data)
 
+        # Record metrics
+        prediction_label = "disease" if result["prediction"] == 1 else "no_disease"
+        PREDICTIONS_TOTAL.labels(prediction_result=prediction_label).inc()
+        PREDICTION_CONFIDENCE.observe(result["confidence"])
+
+        # Record latency
+        latency = (datetime.now() - start_time).total_seconds()
+        PREDICTION_LATENCY.observe(latency)
+
         # Log prediction (for monitoring)
         logger.info(f"Prediction result: {result['prediction_label']} (confidence: {result['confidence']:.2%})")
 
         return PredictionResponse(**result)
 
     except ValueError as e:
+        PREDICTION_ERRORS.labels(error_type="validation_error").inc()
         logger.error(f"Validation error: {e}")
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        PREDICTION_ERRORS.labels(error_type="internal_error").inc()
         logger.error(f"Prediction error: {e}")
         raise HTTPException(status_code=500, detail="Internal server error during prediction")
 
