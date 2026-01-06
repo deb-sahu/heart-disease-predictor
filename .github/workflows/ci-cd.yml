@@ -5,9 +5,10 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [main, master, develop]
+    branches: [main, develop]
   pull_request:
-    branches: [main, master]
+    branches: [main]
+  workflow_dispatch:  # Allows manual trigger from GitHub Actions UI
 
 env:
   PYTHON_VERSION: "3.11"
