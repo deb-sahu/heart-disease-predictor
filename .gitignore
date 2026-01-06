@@ -109,6 +109,3 @@ docker-image.tar.gz
 *.temp
 *.bak
 
-# Screenshots folder (for documentation)
-screenshots/
-
