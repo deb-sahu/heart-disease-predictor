@@ -490,8 +490,9 @@ The GitHub Actions pipeline (`.github/workflows/ci-cd.yml`) includes:
 
 ### Triggers
 
-- Push to `main`, `master`, or `develop` branches
-- Pull requests to `main` or `master`
+- Push to `main` or `develop` branches
+- Pull requests to `main`
+- **Manual trigger**: Go to Actions → CI/CD Pipeline → "Run workflow"
 
 ### Artifacts
 
