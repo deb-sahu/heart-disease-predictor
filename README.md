@@ -10,13 +10,12 @@ A production-ready machine learning solution for predicting heart disease risk, 
 
 > ### 📖 **For Evaluators/Instructors**
 > 
-> **➡️ [Click here for Complete Local Setup Guide](docs/SETUP.md) ⬅️**
+> | Document | Description |
+> |----------|-------------|
+> | **➡️ [Local Setup Guide](docs/SETUP.md)** | Step-by-step instructions to run everything locally |
+> | **📄 [Final Report](Final%20Report.docx)** | 10-page assignment report with screenshots |
 > 
-> The setup guide provides step-by-step instructions to:
-> - Train the model locally
-> - Run the API and test predictions
-> - Deploy to Kubernetes (Minikube)
-> - Set up Prometheus & Grafana monitoring
+> The setup guide covers: Model training, API testing, Kubernetes deployment, and Prometheus + Grafana monitoring.
 
 ---
 
@@ -606,6 +605,7 @@ For detailed architecture documentation, see [docs/ARCHITECTURE.md](docs/ARCHITE
 | Document | Description |
 |----------|-------------|
 | ⭐ **[docs/SETUP.md](docs/SETUP.md)** | **Complete local setup guide (start here!)** |
+| 📄 **[Final Report.docx](Final%20Report.docx)** | **Assignment report (10 pages)** |
 | [README.md](README.md) | Project overview |
 | [docs/TECHNICAL_GUIDE.md](docs/TECHNICAL_GUIDE.md) | Technical deep-dive |
 | [docs/DEPLOYMENT_GUIDE.md](docs/DEPLOYMENT_GUIDE.md) | Kubernetes & monitoring details |
