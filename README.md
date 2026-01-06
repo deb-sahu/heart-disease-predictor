@@ -6,8 +6,23 @@
 
 A production-ready machine learning solution for predicting heart disease risk, built with modern MLOps best practices including experiment tracking, CI/CD pipelines, containerization, and API deployment.
 
+---
+
+> ### 📖 **For Evaluators/Instructors**
+> 
+> **➡️ [Click here for Complete Local Setup Guide](docs/SETUP.md) ⬅️**
+> 
+> The setup guide provides step-by-step instructions to:
+> - Train the model locally
+> - Run the API and test predictions
+> - Deploy to Kubernetes (Minikube)
+> - Set up Prometheus & Grafana monitoring
+
+---
+
 ## 📋 Table of Contents
 
+- [**Setup Guide**](docs/SETUP.md) ⭐
 - [Overview](#overview)
 - [Features](#features)
 - [Project Structure](#project-structure)
@@ -67,9 +82,11 @@ heart-disease-predictor/
 ├── data/                       # Dataset storage (gitignored)
 ├── models/                     # Trained model artifacts (gitignored)
 ├── artifacts/                  # Training artifacts (plots, reports)
+├── screenshots/                # Deployment screenshots for reporting
 ├── scripts/
 │   ├── download_data.py        # Dataset download script
-│   └── run_training.py         # Training runner script
+│   ├── run_training.py         # Training runner script
+│   └── setup-monitoring.sh     # Prometheus/Grafana setup script
 ├── src/
 │   ├── __init__.py
 │   ├── config.py               # Configuration settings
@@ -579,6 +596,20 @@ The most predictive features for heart disease:
 └─────────────────────────────────────────────────────────────────┘
 ```
 
+For detailed architecture documentation, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+---
+
+## 📚 Documentation
+
+| Document | Description |
+|----------|-------------|
+| ⭐ **[docs/SETUP.md](docs/SETUP.md)** | **Complete local setup guide (start here!)** |
+| [README.md](README.md) | Project overview |
+| [docs/TECHNICAL_GUIDE.md](docs/TECHNICAL_GUIDE.md) | Technical deep-dive |
+| [docs/DEPLOYMENT_GUIDE.md](docs/DEPLOYMENT_GUIDE.md) | Kubernetes & monitoring details |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | System architecture diagrams |
+
 ---
 
 ## 📚 References
@@ -595,17 +626,3 @@ The most predictive features for heart disease:
 This project is licensed under the MIT License - see the LICENSE file for details.
 
 ---
-
-## 👥 Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
----
-
-## 📧 Contact
-
-For questions or feedback, please open an issue on GitHub.
