@@ -88,12 +88,14 @@ kubectl cluster-info
 #### Step 2: Build Docker Image
 
 ```bash
-# Build the image
-docker build -t heart-disease-predictor:latest .
+# Build the image (use minikube's Docker daemon)
+docker build -t heart-disease-api:latest .
 
 # Verify image was created
-docker images | grep heart-disease
+docker images | grep heart-disease-api
 ```
+
+> **Important**: Make sure to run `eval $(minikube docker-env)` before building so the image is available in minikube's Docker registry.
 
 #### Step 3: Deploy to Kubernetes
 
@@ -151,151 +153,205 @@ kubectl port-forward svc/heart-disease-api-service 8080:80 -n heart-disease-pred
 
 #### Step 6: Test the API
 
-```bash
-# Health check
-curl http://localhost:8080/health
+**Available Endpoints:**
 
-# Make a prediction
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/health` | GET | Health check - returns model status |
+| `/predict` | POST | Make heart disease prediction |
+| `/metrics` | GET | Prometheus metrics for monitoring |
+| `/docs` | GET | Interactive Swagger UI documentation |
+| `/model/info` | GET | Model information and features |
+
+**Test Commands:**
+
+```bash
+# 1. Health check
+curl http://localhost:8080/health
+# Response: {"status":"healthy","model_loaded":true,"version":"1.0.0"}
+
+# 2. Make a prediction
 curl -X POST http://localhost:8080/predict \
   -H "Content-Type: application/json" \
   -d '{
-    "age": 63, "sex": 1, "cp": 3, "trestbps": 145,
-    "chol": 233, "fbs": 1, "restecg": 0, "thalach": 150,
-    "exang": 0, "oldpeak": 2.3, "slope": 0, "ca": 0, "thal": 1
+    "age": 63,
+    "sex": 1,
+    "cp": 3,
+    "trestbps": 145,
+    "chol": 233,
+    "fbs": 1,
+    "restecg": 0,
+    "thalach": 150,
+    "exang": 0,
+    "oldpeak": 2.3,
+    "slope": 0,
+    "ca": 0,
+    "thal": 1
   }'
+# Response: {"prediction":0,"prediction_label":"No Heart Disease","probability_no_disease":0.81,"probability_disease":0.19,"confidence":0.81}
 
-# Check metrics endpoint
-curl http://localhost:8080/metrics
+# 3. Check Prometheus metrics
+curl http://localhost:8080/metrics | grep heart_disease
+# Shows custom metrics like heart_disease_predictions_total, heart_disease_prediction_latency_seconds
+
+# 4. Get model info
+curl http://localhost:8080/model/info
+
+# 5. Open Swagger UI in browser
+open http://localhost:8080/docs
 ```
+
+**Prediction Input Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `age` | int | Age in years (29-77) |
+| `sex` | int | Sex (0=female, 1=male) |
+| `cp` | int | Chest pain type (0-3) |
+| `trestbps` | int | Resting blood pressure (mm Hg) |
+| `chol` | int | Serum cholesterol (mg/dl) |
+| `fbs` | int | Fasting blood sugar > 120 mg/dl (0/1) |
+| `restecg` | int | Resting ECG results (0-2) |
+| `thalach` | int | Max heart rate achieved |
+| `exang` | int | Exercise induced angina (0/1) |
+| `oldpeak` | float | ST depression induced by exercise |
+| `slope` | int | Slope of peak exercise ST segment (0-2) |
+| `ca` | int | Number of major vessels (0-4) |
+| `thal` | int | Thalassemia (1=normal, 2=fixed defect, 3=reversible) |
 
 ---
 
-## 3. Grafana Cloud Setup (Free)
+## 3. Local Prometheus & Grafana Setup
 
-Grafana Cloud offers a **generous free tier** that includes:
-- 10,000 series for Prometheus metrics
-- 50 GB logs
-- 50 GB traces
-- 14-day retention
-- 3 users
+We deploy Prometheus and Grafana locally in Minikube using Helm charts. This provides a **completely free** monitoring solution without any cloud accounts.
 
-### Step 1: Create Free Account
+### Prerequisites
 
-1. Go to [grafana.com/auth/sign-up/create-user](https://grafana.com/auth/sign-up/create-user)
-2. Sign up with email or GitHub
-3. Choose the **Free** plan
+- Minikube running (from Step 2)
+- Helm installed (`brew install helm`)
 
-### Step 2: Set Up Prometheus Integration
-
-1. After logging in, you'll see the **Getting Started Guide**
-2. Go to **Connections** → **Add new connection** in the left sidebar
-3. Search for "Prometheus" and click on it
-4. Or navigate to the **Prometheus onboarding** page
-
-On the Prometheus onboarding page, you'll see a wizard with multiple steps:
-
-**Step 1 - "How do you want to get started?"**
-- Select **"Collect and send metrics to a fully-managed Prometheus Stack"**
-- Click **Next**
-
-**Step 2 - "Which services generate your data?"**
-- You'll see options like AWS CloudWatch, Azure, Docker, etc.
-- Scroll down and select **"Custom Setup Options"** (this is for our custom FastAPI app metrics)
-- Click **Next**
-
-### Step 3: Get Your Credentials
-
-After selecting **Custom Setup Options**, you'll see the configuration page with your credentials.
-
-The page displays:
-
-1. **Prometheus Remote Write Endpoint** - The URL where metrics will be sent
-   - Example: `https://prometheus-prod-24-prod-eu-west-2.grafana.net/api/prom/push`
-   - Copy this value
-
-2. **Username** - Your numeric Grafana Cloud username
-   - Example: `123456`
-   - Copy this value
-
-3. **Password / API Token** - Click **"Generate now"** button to create a new API token
-   - Give it a descriptive name like `heart-disease-api-metrics`
-   - Copy and save the token immediately (it won't be shown again!)
-
-> **Important**: Save these three values securely. You'll need them to configure Prometheus to send metrics to Grafana Cloud.
-
-**Alternative Method** (if you need to find credentials later):
-1. Go to **Home** → Click on your stack name (e.g., "yourname")
-2. Under **Prometheus**, click **Details** or **Send Metrics**
-3. Copy the **Remote Write Endpoint** and **Username**
-4. Generate an API key with `MetricsPublisher` role from **Security** → **API Keys**
-
-### Step 4: Configure Prometheus Agent
-
-Create a Prometheus configuration to send metrics to Grafana Cloud:
-
-```yaml
-# prometheus-agent.yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: prometheus-agent-config
-  namespace: heart-disease-predictor
-data:
-  prometheus.yml: |
-    global:
-      scrape_interval: 15s
-
-    scrape_configs:
-      - job_name: 'heart-disease-api'
-        static_configs:
-          - targets: ['heart-disease-api-internal:8000']
-        metrics_path: /metrics
-
-    remote_write:
-      - url: YOUR_GRAFANA_CLOUD_PROMETHEUS_URL
-        basic_auth:
-          username: YOUR_USERNAME
-          password: YOUR_API_KEY
-```
-
-### Step 5: Deploy Prometheus Agent
+### Step 1: Add Helm Repositories
 
 ```bash
-# Create the ConfigMap (after editing with your credentials)
-kubectl apply -f prometheus-agent.yaml
-
-# Deploy Prometheus agent
-kubectl apply -f k8s/prometheus-agent.yaml
+# Add Prometheus and Grafana Helm repositories
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo add grafana https://grafana.github.io/helm-charts
+helm repo update
 ```
 
-### Alternative: Use Grafana Alloy (Simpler)
+### Step 2: Deploy Prometheus
 
-Grafana recommends using **Alloy** (formerly Grafana Agent) for collecting metrics:
+We use a custom values file (`k8s/prometheus-values.yaml`) that configures Prometheus to scrape our heart-disease-api metrics:
 
 ```bash
-# Install Alloy using Helm
+# Install Prometheus with custom config
+helm install prometheus prometheus-community/prometheus \
+  --namespace monitoring \
+  --create-namespace \
+  -f k8s/prometheus-values.yaml
+```
+
+The `prometheus-values.yaml` includes:
+- Auto-discovery of our API pods
+- Scraping `/metrics` endpoint every 15 seconds
+- Kubernetes node and pod metrics
+
+### Step 3: Deploy Grafana
+
+```bash
+# Install Grafana with a known password
+helm install grafana grafana/grafana \
+  --namespace monitoring \
+  --set persistence.enabled=false \
+  --set adminPassword=admin123
+```
+
+### Step 4: Wait for Pods to be Ready
+
+```bash
+# Wait for all monitoring pods
+kubectl -n monitoring wait --for=condition=ready pod --all --timeout=120s
+
+# Verify pods are running
+kubectl -n monitoring get pods
+```
+
+Expected output:
+```
+NAME                                            READY   STATUS    RESTARTS   AGE
+grafana-xxxxxxxxxx-xxxxx                        1/1     Running   0          1m
+prometheus-server-xxxxxxxxxx-xxxxx              2/2     Running   0          1m
+prometheus-kube-state-metrics-xxxxxxxxxx-xxxxx  1/1     Running   0          1m
+prometheus-prometheus-node-exporter-xxxxx       1/1     Running   0          1m
+```
+
+### Step 5: Access the Services
+
+```bash
+# Port forward Prometheus (in background)
+kubectl -n monitoring port-forward svc/prometheus-server 9090:80 &
+
+# Port forward Grafana (in background)
+kubectl -n monitoring port-forward svc/grafana 3000:80 &
+```
+
+**Access URLs:**
+
+| Service | URL | Credentials |
+|---------|-----|-------------|
+| Prometheus | http://localhost:9090 | - |
+| Grafana | http://localhost:3000 | `admin` / `admin123` |
+
+### Step 6: Configure Grafana Data Source
+
+1. Open http://localhost:3000
+2. Login with `admin` / `admin123`
+3. Go to **Connections** → **Data Sources** → **Add data source**
+4. Select **Prometheus**
+5. Set URL to: `http://prometheus-server.monitoring.svc.cluster.local`
+6. Click **Save & Test** (should show "Data source is working")
+
+### Step 7: Verify Metrics are Being Collected
+
+```bash
+# Check Prometheus targets
+curl -s "http://localhost:9090/api/v1/targets" | jq '.data.activeTargets[] | {job: .labels.job, health: .health}'
+
+# Query our custom metrics
+curl -s "http://localhost:9090/api/v1/query?query=heart_disease_predictions_total" | jq '.data.result'
+```
+
+### Quick Setup Script
+
+For convenience, here's a complete setup script:
+
+```bash
+#!/bin/bash
+# setup-monitoring.sh
+
+# Add Helm repos
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 helm repo add grafana https://grafana.github.io/helm-charts
 helm repo update
 
-helm install alloy grafana/alloy \
-  --namespace heart-disease-predictor \
-  --set alloy.config="
-    prometheus.scrape \"api\" {
-      targets = [{\"__address__\" = \"heart-disease-api-internal:8000\"}]
-      forward_to = [prometheus.remote_write.grafana_cloud.receiver]
-      metrics_path = \"/metrics\"
-    }
-    
-    prometheus.remote_write \"grafana_cloud\" {
-      endpoint {
-        url = \"YOUR_GRAFANA_CLOUD_URL\"
-        basic_auth {
-          username = \"YOUR_USERNAME\"
-          password = \"YOUR_API_KEY\"
-        }
-      }
-    }
-  "
+# Install Prometheus
+helm install prometheus prometheus-community/prometheus \
+  --namespace monitoring \
+  --create-namespace \
+  -f k8s/prometheus-values.yaml
+
+# Install Grafana
+helm install grafana grafana/grafana \
+  --namespace monitoring \
+  --set persistence.enabled=false \
+  --set adminPassword=admin123
+
+# Wait for pods
+kubectl -n monitoring wait --for=condition=ready pod --all --timeout=120s
+
+echo "Monitoring stack deployed!"
+echo "Prometheus: kubectl -n monitoring port-forward svc/prometheus-server 9090:80"
+echo "Grafana:    kubectl -n monitoring port-forward svc/grafana 3000:80"
 ```
 
 ---
@@ -344,12 +400,14 @@ rate(http_requests_total[1m])
 
 ---
 
-## 5. Creating Dashboards
+## 5. Creating Grafana Dashboards
 
 ### Import Pre-built Dashboard
 
-1. In Grafana Cloud, go to **Dashboards** → **Import**
-2. Use dashboard ID or paste JSON
+1. In Grafana, go to **Dashboards** → **Import**
+2. Paste the JSON from `grafana-dashboard.json` below
+3. Select your Prometheus data source
+4. Click **Import**
 
 ### Create Custom Dashboard
 

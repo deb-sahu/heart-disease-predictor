@@ -17,6 +17,8 @@ A production-ready machine learning solution for predicting heart disease risk, 
 - [API Documentation](#api-documentation)
 - [MLflow Experiment Tracking](#mlflow-experiment-tracking)
 - [Docker Deployment](#docker-deployment)
+- [Kubernetes Deployment](#kubernetes-deployment-minikube)
+- [Monitoring](#monitoring-with-prometheus--grafana)
 - [CI/CD Pipeline](#cicd-pipeline)
 - [Testing](#testing)
 - [Model Information](#model-information)
@@ -354,6 +356,106 @@ docker-compose down
 - Non-root user for security
 - Health checks for orchestration
 - Volume mounts for model updates
+
+---
+
+## ☸️ Kubernetes Deployment (Minikube)
+
+### Quick Start with Minikube
+
+```bash
+# 1. Install and start Minikube
+brew install minikube
+minikube start
+
+# 2. Use Minikube's Docker daemon
+eval $(minikube docker-env)
+
+# 3. Build the Docker image
+docker build -t heart-disease-api:latest .
+
+# 4. Deploy to Kubernetes
+kubectl apply -f k8s/namespace.yaml
+kubectl apply -f k8s/configmap.yaml
+kubectl apply -f k8s/deployment.yaml
+kubectl apply -f k8s/service.yaml
+
+# 5. Wait for pods to be ready
+kubectl -n heart-disease-predictor get pods -w
+
+# 6. Port forward to access the API
+kubectl -n heart-disease-predictor port-forward svc/heart-disease-api-service 8080:80
+```
+
+### Test the Deployed API
+
+```bash
+# Health check
+curl http://localhost:8080/health
+
+# Make a prediction
+curl -X POST http://localhost:8080/predict \
+  -H "Content-Type: application/json" \
+  -d '{"age":63,"sex":1,"cp":3,"trestbps":145,"chol":233,"fbs":1,"restecg":0,"thalach":150,"exang":0,"oldpeak":2.3,"slope":0,"ca":0,"thal":1}'
+
+# Check Prometheus metrics
+curl http://localhost:8080/metrics | grep heart_disease
+
+# Open Swagger UI
+open http://localhost:8080/docs
+```
+
+### API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/health` | GET | Health check with model status |
+| `/predict` | POST | Make heart disease prediction |
+| `/metrics` | GET | Prometheus metrics |
+| `/docs` | GET | Swagger UI documentation |
+| `/model/info` | GET | Model information |
+
+For detailed deployment instructions, see [docs/DEPLOYMENT_GUIDE.md](docs/DEPLOYMENT_GUIDE.md).
+
+---
+
+## 📊 Monitoring with Prometheus & Grafana
+
+Deploy a local monitoring stack using Helm:
+
+```bash
+# Add Helm repositories
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo add grafana https://grafana.github.io/helm-charts
+helm repo update
+
+# Install Prometheus (with custom config to scrape our API)
+helm install prometheus prometheus-community/prometheus \
+  --namespace monitoring --create-namespace \
+  -f k8s/prometheus-values.yaml
+
+# Install Grafana
+helm install grafana grafana/grafana \
+  --namespace monitoring \
+  --set adminPassword=admin123
+
+# Access the services
+kubectl -n monitoring port-forward svc/prometheus-server 9090:80 &
+kubectl -n monitoring port-forward svc/grafana 3000:80 &
+```
+
+**Access URLs:**
+
+| Service | URL | Credentials |
+|---------|-----|-------------|
+| Prometheus | http://localhost:9090 | - |
+| Grafana | http://localhost:3000 | `admin` / `admin123` |
+
+**Custom Metrics Available:**
+- `heart_disease_predictions_total` - Total predictions by result
+- `heart_disease_prediction_latency_seconds` - Request latency
+- `heart_disease_prediction_confidence` - Model confidence scores
+- `heart_disease_model_loaded` - Model status (1=loaded, 0=not)
 
 ---
 

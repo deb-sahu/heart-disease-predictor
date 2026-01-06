@@ -1,0 +1,37 @@
+# Prometheus Helm Chart Custom Values
+# Configured to scrape heart-disease-api metrics
+
+server:
+  persistentVolume:
+    enabled: false  # Disable for local development
+
+alertmanager:
+  enabled: false  # Not needed for demo
+
+prometheus-pushgateway:
+  enabled: false  # Not needed
+
+kube-state-metrics:
+  enabled: true
+
+prometheus-node-exporter:
+  enabled: true
+
+# Extra scrape configs for our heart-disease-api
+extraScrapeConfigs: |
+  - job_name: 'heart-disease-api'
+    kubernetes_sd_configs:
+      - role: endpoints
+        namespaces:
+          names:
+            - heart-disease-predictor
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_service_name]
+        action: keep
+        regex: heart-disease-api-internal
+      - source_labels: [__meta_kubernetes_endpoint_port_name]
+        action: keep
+        regex: http
+    metrics_path: /metrics
+    scrape_interval: 15s
+

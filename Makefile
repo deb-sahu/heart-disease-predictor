@@ -1,7 +1,7 @@
 # Heart Disease Predictor - Makefile
 # Convenient commands for development and deployment
 
-.PHONY: help install install-dev clean lint format test train run docker-build docker-run docker-stop k8s-deploy k8s-delete all
+.PHONY: help install install-dev clean lint format test train run docker-build docker-run docker-stop k8s-deploy k8s-delete monitoring-setup monitoring-status monitoring-port-forward monitoring-delete all
 
 # Default target
 help:
@@ -38,6 +38,12 @@ help:
 	@echo "  make k8s-logs         View pod logs"
 	@echo "  make k8s-port-forward Forward port to access API"
 	@echo "  make k8s-delete       Delete all K8s resources"
+	@echo ""
+	@echo "Monitoring:"
+	@echo "  make monitoring-setup        Deploy Prometheus & Grafana"
+	@echo "  make monitoring-status       Show monitoring pods"
+	@echo "  make monitoring-port-forward Forward ports for dashboards"
+	@echo "  make monitoring-delete       Delete monitoring stack"
 	@echo ""
 	@echo "Cleanup:
 	@echo "  make clean         Remove cache and temporary files"
@@ -160,6 +166,34 @@ k8s-port-forward:
 	@echo "Forwarding port 8080 to the API service..."
 	@echo "Access at http://localhost:8080"
 	kubectl port-forward svc/heart-disease-api-service 8080:80 -n heart-disease-predictor
+
+# ============================================================================
+# Monitoring (Prometheus & Grafana)
+# ============================================================================
+
+monitoring-setup:
+	@echo "Setting up Prometheus and Grafana..."
+	./scripts/setup-monitoring.sh
+
+monitoring-status:
+	@echo "=== Monitoring Pods ==="
+	kubectl get pods -n monitoring
+	@echo ""
+	@echo "=== Monitoring Services ==="
+	kubectl get svc -n monitoring
+
+monitoring-port-forward:
+	@echo "Forwarding ports for Prometheus and Grafana..."
+	@echo "Prometheus: http://localhost:9090"
+	@echo "Grafana:    http://localhost:3000 (admin/admin123)"
+	kubectl -n monitoring port-forward svc/prometheus-server 9090:80 &
+	kubectl -n monitoring port-forward svc/grafana 3000:80 &
+
+monitoring-delete:
+	helm uninstall prometheus -n monitoring || true
+	helm uninstall grafana -n monitoring || true
+	kubectl delete namespace monitoring || true
+	@echo "✓ Monitoring stack deleted"
 
 # ============================================================================
 # Cleanup
