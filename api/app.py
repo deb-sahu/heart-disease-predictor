@@ -11,7 +11,7 @@ import uvicorn
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from prometheus_client import Counter, Histogram, Gauge
+from prometheus_client import Counter, Gauge, Histogram
 from prometheus_fastapi_instrumentator import Instrumentator
 
 from api.schemas import ErrorResponse, HealthResponse, PatientData, PredictionResponse
@@ -31,32 +31,25 @@ predictor: Optional[HeartDiseasePredictor] = None
 
 # Prediction metrics
 PREDICTIONS_TOTAL = Counter(
-    "heart_disease_predictions_total",
-    "Total number of predictions made",
-    ["prediction_result"]
+    "heart_disease_predictions_total", "Total number of predictions made", ["prediction_result"]
 )
 
 PREDICTION_LATENCY = Histogram(
     "heart_disease_prediction_latency_seconds",
     "Time spent processing prediction requests",
-    buckets=[0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0]
+    buckets=[0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0],
 )
 
 PREDICTION_CONFIDENCE = Histogram(
     "heart_disease_prediction_confidence",
     "Confidence scores of predictions",
-    buckets=[0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.99, 1.0]
+    buckets=[0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.99, 1.0],
 )
 
-MODEL_LOADED = Gauge(
-    "heart_disease_model_loaded",
-    "Whether the ML model is currently loaded (1=loaded, 0=not loaded)"
-)
+MODEL_LOADED = Gauge("heart_disease_model_loaded", "Whether the ML model is currently loaded (1=loaded, 0=not loaded)")
 
 PREDICTION_ERRORS = Counter(
-    "heart_disease_prediction_errors_total",
-    "Total number of prediction errors",
-    ["error_type"]
+    "heart_disease_prediction_errors_total", "Total number of prediction errors", ["error_type"]
 )
 
 
